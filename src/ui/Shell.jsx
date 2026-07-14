@@ -1,4 +1,4 @@
-import { LayoutDashboard, KanbanSquare, FolderKanban, Sun, Moon, LogOut } from 'lucide-react'
+import { LayoutDashboard, KanbanSquare, FolderKanban, NotebookPen, Sun, Moon, LogOut } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useMobile } from './comuns'
 
@@ -6,6 +6,7 @@ const ABAS = [
   { id: 'painel', rotulo: 'Painel', Icone: LayoutDashboard },
   { id: 'demandas', rotulo: 'Demandas', Icone: KanbanSquare },
   { id: 'projetos', rotulo: 'Projetos', Icone: FolderKanban },
+  { id: 'registros', rotulo: 'Registros', Icone: NotebookPen },
 ]
 
 export default function Shell({ t, aba, setAba, alternarTema, children }) {
@@ -27,7 +28,7 @@ export default function Shell({ t, aba, setAba, alternarTema, children }) {
             flexShrink: 0,
           }}
         >
-          <img src={t.logo} alt="Hengst" style={{ height: 30 }} />
+          <img src={t.logo} alt="Hengst" style={{ height: 44 }} />
           <div style={{ display: 'flex', gap: 4 }}>
             <BotaoIcone t={t} onClick={alternarTema} aria-label="Alternar tema">
               {t.nome === 'escuro' ? <Sun size={20} /> : <Moon size={20} />}
