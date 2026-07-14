@@ -6,7 +6,9 @@ import Shell from './ui/Shell'
 import Painel from './ui/Painel'
 import Demandas from './ui/Demandas'
 import Projetos from './ui/Projetos'
+import Registros from './ui/Registros'
 import { ModalDemanda } from './ui/Demanda'
+import { subirFoto, apagarFotos } from './lib/fotos'
 
 export default function App() {
   const [temaNome, setTemaNome] = useState(() => localStorage.getItem('tema') || 'escuro')
@@ -19,6 +21,7 @@ export default function App() {
 
   const [projetos, setProjetos] = useState([])
   const [demandas, setDemandas] = useState([])
+  const [registros, setRegistros] = useState([])
 
   const [modalDemanda, setModalDemanda] = useState(false)
   const [demandaEdit, setDemandaEdit] = useState(null)
@@ -60,12 +63,48 @@ export default function App() {
   }, [sessao])
 
   async function carregar() {
-    const [pr, de] = await Promise.all([
+    const [pr, de, re] = await Promise.all([
       supabase.from('projetos').select('*').order('created_at', { ascending: false }),
       supabase.from('demandas').select('*').order('posicao', { ascending: true }),
+      supabase.from('registros').select('*').order('quando', { ascending: false }),
     ])
     if (!pr.error) setProjetos(pr.data)
     if (!de.error) setDemandas(de.data)
+    if (!re.error) setRegistros(re.data)
+  }
+
+  // ---------- CRUD REGISTROS ----------
+  async function salvarRegistro(dados, editando, arquivosNovos = [], caminhosRemover = []) {
+    const userId = sessao?.user?.id
+    // 1) upload das fotos novas
+    const caminhosNovos = []
+    for (const file of arquivosNovos) {
+      try {
+        const c = await subirFoto(file, userId)
+        caminhosNovos.push(c)
+      } catch (e) { console.error('Falha ao subir foto:', e) }
+    }
+    // 2) monta lista final de fotos
+    const anteriores = editando?.fotos || []
+    const fotos = [...anteriores.filter((c) => !caminhosRemover.includes(c)), ...caminhosNovos]
+
+    if (editando) {
+      const { data, error } = await supabase.from('registros').update({ ...dados, fotos }).eq('id', editando.id).select().single()
+      if (!error) setRegistros((s) => s.map((x) => (x.id === data.id ? data : x)))
+    } else {
+      const { data, error } = await supabase.from('registros').insert({ ...dados, fotos }).select().single()
+      if (!error) setRegistros((s) => [data, ...s])
+    }
+    // 3) apagar fotos removidas do storage (fire-and-forget)
+    if (caminhosRemover.length) apagarFotos(caminhosRemover).catch(() => {})
+  }
+
+  async function excluirRegistro(r) {
+    const { error } = await supabase.from('registros').delete().eq('id', r.id)
+    if (!error) {
+      setRegistros((s) => s.filter((x) => x.id !== r.id))
+      if (r.fotos?.length) apagarFotos(r.fotos).catch(() => {})
+    }
   }
 
   // ---------- CRUD DEMANDAS ----------
@@ -162,7 +201,7 @@ export default function App() {
     <>
       <Shell t={t} aba={aba} setAba={(a) => { setAba(a); if (a !== 'projetos') setProjetoAberto(null) }} alternarTema={alternarTema}>
         {aba === 'painel' && (
-          <Painel t={t} demandas={demandas} projetos={projetos} abrirDemanda={abrirDemanda} irProjeto={irProjeto} moverDemanda={moverDemanda} />
+          <Painel t={t} demandas={demandas} projetos={projetos} registros={registros} abrirDemanda={abrirDemanda} irProjeto={irProjeto} moverDemanda={moverDemanda} irRegistros={() => setAba('registros')} />
         )}
         {aba === 'demandas' && (
           <Demandas t={t} demandas={demandas} projetos={projetos} novaDemanda={() => abrirNovaDemanda()} abrirDemanda={abrirDemanda} moverDemanda={moverDemanda} />
@@ -179,6 +218,16 @@ export default function App() {
             novaDemandaNoProjeto={abrirNovaDemanda}
             abrirDemanda={abrirDemanda}
             moverDemanda={moverDemanda}
+          />
+        )}
+        {aba === 'registros' && (
+          <Registros
+            t={t}
+            registros={registros}
+            projetos={projetos}
+            demandas={demandas}
+            salvar={salvarRegistro}
+            excluir={excluirRegistro}
           />
         )}
       </Shell>
