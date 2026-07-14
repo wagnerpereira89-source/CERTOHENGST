@@ -19,6 +19,10 @@ export const TEMAS = {
     hojeBg: 'rgba(255,169,77,0.12)',
     ok: '#51cf66',
     okBg: 'rgba(81,207,102,0.12)',
+    info: '#5cb0ff',
+    infoBg: 'rgba(92,176,255,0.12)',
+    roxo: '#b48cff',
+    roxoBg: 'rgba(180,140,255,0.14)',
     inputBg: '#03102f',
     sombra: '0 2px 10px rgba(0,0,0,0.35)',
     logo: '/logo-clara.png',
@@ -44,6 +48,10 @@ export const TEMAS = {
     hojeBg: '#fdf3e3',
     ok: '#1d8348',
     okBg: '#e9f7ef',
+    info: '#1e6bc7',
+    infoBg: '#e8f1fc',
+    roxo: '#6b3fb8',
+    roxoBg: '#efe8fa',
     inputBg: '#f7f8fc',
     sombra: '0 2px 8px rgba(3,15,71,0.07)',
     logo: '/logo-escura.png',
@@ -77,6 +85,15 @@ export const STATUS_PROJETO = [
   { id: 'ativo', rotulo: 'Ativo' },
   { id: 'pausado', rotulo: 'Pausado' },
   { id: 'concluido', rotulo: 'Concluído' },
+]
+
+export const TIPOS_REGISTRO = [
+  { id: 'ocorrencia', rotulo: 'Ocorrência',      icone: 'AlertTriangle', corToken: 'atrasado' },
+  { id: 'ideia',      rotulo: 'Ideia',           icone: 'Lightbulb',      corToken: 'acento' },
+  { id: 'decisao',    rotulo: 'Decisão',         icone: 'CheckCircle2',   corToken: 'ok' },
+  { id: 'reuniao',    rotulo: 'Reunião',         icone: 'MessagesSquare', corToken: 'info' },
+  { id: 'acao',       rotulo: 'Ação executada',  icone: 'Wrench',         corToken: 'roxo' },
+  { id: 'nota',       rotulo: 'Nota geral',      icone: 'Pin',            corToken: 'textoSec' },
 ]
 
 // ---------- DATAS ----------
@@ -113,4 +130,43 @@ export function proximoPrazo(prazoAtual, recorrencia) {
   const mm = String(dt.getMonth() + 1).padStart(2, '0')
   const dd = String(dt.getDate()).padStart(2, '0')
   return `${dt.getFullYear()}-${mm}-${dd}`
+}
+
+// Agrupamento amigável por dia: "Hoje", "Ontem", "quarta-feira, 09/07" ou "09/07/2026"
+const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+export function rotuloDia(ts) {
+  const d = new Date(ts)
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const alvo = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const diff = Math.round((hoje - alvo) / 86400000)
+  if (diff === 0) return 'Hoje'
+  if (diff === 1) return 'Ontem'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  if (diff > 1 && diff < 7) return `${DIAS[d.getDay()]}, ${dd}/${mm}`
+  if (d.getFullYear() === new Date().getFullYear()) return `${dd}/${mm}`
+  return `${dd}/${mm}/${d.getFullYear()}`
+}
+
+export function chaveDia(ts) {
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+export function formatarHora(ts) {
+  const d = new Date(ts)
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+// timestamp local para input datetime-local (formato YYYY-MM-DDTHH:MM)
+export function tsParaInput(ts) {
+  const d = new Date(ts || Date.now())
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+export function inputParaTs(v) {
+  if (!v) return new Date().toISOString()
+  // v vem como YYYY-MM-DDTHH:MM (horário local) — o Date interpreta como local
+  return new Date(v).toISOString()
 }
