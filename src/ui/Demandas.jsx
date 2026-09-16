@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Plus, SlidersHorizontal, X, KanbanSquare, CalendarDays } from 'lucide-react'
 import { ETAPAS, PRIORIDADES } from '../lib/base'
-import { CardDemanda } from './Demanda'
+import { CardDemanda, CardConcluida } from './Demanda'
 import Calendario from './Calendario'
 import { BotaoPrimario, useMobile, Vazio } from './comuns'
+
+const LIMITE_CONCLUIDAS = 8
 
 export default function Demandas({ t, demandas, projetos, responsaveis = [], novaDemanda, abrirDemanda, moverDemanda }) {
   const mobile = useMobile()
@@ -12,6 +14,7 @@ export default function Demandas({ t, demandas, projetos, responsaveis = [], nov
   const [arrastando, setArrastando] = useState(null)
   const [alvo, setAlvo] = useState(null)
   const [visao, setVisao] = useState('quadro') // 'quadro' | 'calendario'
+  const [verTodasConcluidas, setVerTodasConcluidas] = useState(false)
 
   // ---------- FILTROS ----------
   const [fPrioridade, setFPrioridade] = useState('todas')
@@ -27,10 +30,19 @@ export default function Demandas({ t, demandas, projetos, responsaveis = [], nov
 
   const demandasFiltradas = demandas.filter(passaFiltro)
 
+  // etapas normais: por posição
   const porEtapa = (id) =>
     demandasFiltradas
       .filter((d) => d.status === id)
       .sort((a, b) => (a.posicao ?? 0) - (b.posicao ?? 0) || (a.created_at > b.created_at ? 1 : -1))
+
+  // concluídas: mais recentes primeiro (por data de conclusão)
+  const concluidasOrdenadas = () =>
+    demandasFiltradas
+      .filter((d) => d.status === 'concluido')
+      .sort((a, b) => (b.concluido_em || '').localeCompare(a.concluido_em || '') || (b.created_at > a.created_at ? 1 : -1))
+
+  const reabrir = (d) => moverDemanda(d, 'andamento')
 
   function limparFiltros() {
     setFPrioridade('todas')
@@ -98,9 +110,26 @@ export default function Demandas({ t, demandas, projetos, responsaveis = [], nov
     </div>
   )
 
+  // botão "Ver todas / Mostrar menos" das concluídas
+  const botaoVerTodas = (total) => (
+    total > LIMITE_CONCLUIDAS && (
+      <button
+        onClick={() => setVerTodasConcluidas((v) => !v)}
+        style={{
+          background: 'transparent', border: `1px solid ${t.borda}`, borderRadius: 9,
+          padding: '8px 10px', fontSize: 12.5, fontWeight: 700, color: t.textoSec, cursor: 'pointer',
+        }}
+      >
+        {verTodasConcluidas ? 'Mostrar menos' : `Ver todas (${total})`}
+      </button>
+    )
+  )
+
   // ---------- QUADRO: mobile (abas de etapa) ----------
   const quadroMobile = (() => {
-    const lista = porEtapa(abaEtapa)
+    const ehConcluido = abaEtapa === 'concluido'
+    const todas = ehConcluido ? concluidasOrdenadas() : porEtapa(abaEtapa)
+    const lista = ehConcluido && !verTodasConcluidas ? todas.slice(0, LIMITE_CONCLUIDAS) : todas
     return (
       <div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, background: t.inputBg, borderRadius: 12, padding: 4 }}>
@@ -128,10 +157,13 @@ export default function Demandas({ t, demandas, projetos, responsaveis = [], nov
             {filtrando ? 'Nenhuma demanda com esses filtros.' : `Nenhuma demanda em "${ETAPAS.find((e) => e.id === abaEtapa)?.rotulo}".`}
           </Vazio>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: ehConcluido ? 8 : 12 }}>
             {lista.map((d) => (
-              <CardDemanda key={d.id} t={t} d={d} projeto={projMap[d.projeto_id]} abrir={abrirDemanda} mover={moverDemanda} />
+              ehConcluido
+                ? <CardConcluida key={d.id} t={t} d={d} projeto={projMap[d.projeto_id]} abrir={abrirDemanda} reabrir={reabrir} />
+                : <CardDemanda key={d.id} t={t} d={d} projeto={projMap[d.projeto_id]} abrir={abrirDemanda} mover={moverDemanda} />
             ))}
+            {ehConcluido && botaoVerTodas(todas.length)}
           </div>
         )}
       </div>
@@ -142,7 +174,9 @@ export default function Demandas({ t, demandas, projetos, responsaveis = [], nov
   const quadroDesktop = (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'start' }}>
       {ETAPAS.map((e) => {
-        const lista = porEtapa(e.id)
+        const ehConcluido = e.id === 'concluido'
+        const todas = ehConcluido ? concluidasOrdenadas() : porEtapa(e.id)
+        const lista = ehConcluido && !verTodasConcluidas ? todas.slice(0, LIMITE_CONCLUIDAS) : todas
         const destacar = alvo === e.id
         return (
           <div
@@ -160,7 +194,7 @@ export default function Demandas({ t, demandas, projetos, responsaveis = [], nov
               background: destacar ? t.selecionadoBg : t.bgMenu,
               border: `1.5px ${destacar ? 'dashed' : 'solid'} ${destacar ? t.acento : t.borda}`,
               borderRadius: 14, padding: 12, minHeight: 200,
-              display: 'flex', flexDirection: 'column', gap: 10,
+              display: 'flex', flexDirection: 'column', gap: ehConcluido ? 8 : 10,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px' }}>
@@ -168,24 +202,29 @@ export default function Demandas({ t, demandas, projetos, responsaveis = [], nov
                 {e.rotulo}
               </span>
               <span style={{ fontSize: 12, fontWeight: 700, color: t.textoFraco, background: t.inputBg, borderRadius: 20, padding: '2px 8px' }}>
-                {lista.length}
+                {todas.length}
               </span>
             </div>
             {lista.map((d) => (
-              <CardDemanda
-                key={d.id}
-                t={t}
-                d={d}
-                projeto={projMap[d.projeto_id]}
-                abrir={abrirDemanda}
-                mover={moverDemanda}
-                arrastavel
-                aoArrastar={setArrastando}
-              />
+              ehConcluido
+                ? <CardConcluida key={d.id} t={t} d={d} projeto={projMap[d.projeto_id]} abrir={abrirDemanda} reabrir={reabrir} />
+                : (
+                  <CardDemanda
+                    key={d.id}
+                    t={t}
+                    d={d}
+                    projeto={projMap[d.projeto_id]}
+                    abrir={abrirDemanda}
+                    mover={moverDemanda}
+                    arrastavel
+                    aoArrastar={setArrastando}
+                  />
+                )
             ))}
+            {ehConcluido && botaoVerTodas(todas.length)}
             {lista.length === 0 && (
               <div style={{ fontSize: 13, color: t.textoFraco, textAlign: 'center', padding: '18px 8px' }}>
-                {filtrando ? 'Nada com esse filtro' : 'Arraste aqui'}
+                {filtrando ? 'Nada com esse filtro' : (ehConcluido ? 'Nada concluído ainda' : 'Arraste aqui')}
               </div>
             )}
           </div>
