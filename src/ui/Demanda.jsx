@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, AlarmClock, CalendarDays, Repeat, Trash2, FolderKanban } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlarmClock, CalendarDays, Repeat, Trash2, FolderKanban, User } from 'lucide-react'
 import { ETAPAS, PRIORIDADES, RECORRENCIAS, estadoPrazo, formatarData } from '../lib/base'
 import { Badge, Bolinha, BotaoGhost, BotaoPrimario, Campo, Modal, estiloInput, useMobile } from './comuns'
 
@@ -55,6 +55,9 @@ export function CardDemanda({ t, d, projeto, abrir, mover, arrastavel, aoArrasta
         {prazo === 'normal' && d.prazo && d.status !== 'concluido' && (
           <Badge cor={t.textoSec} bg="transparent"><CalendarDays size={12} /> {formatarData(d.prazo)}</Badge>
         )}
+        {d.responsavel && (
+          <Badge cor={t.info} bg={t.infoBg}><User size={12} /> {d.responsavel}</Badge>
+        )}
         {d.recorrencia !== 'nenhuma' && (
           <Badge cor={t.textoSec} bg="transparent"><Repeat size={12} /> {RECORRENCIAS.find((r) => r.id === d.recorrencia)?.rotulo}</Badge>
         )}
@@ -105,13 +108,13 @@ function botaoEtapa(t, desabilitado) {
 }
 
 // ---------- FORMULÁRIO (MODAL) ----------
-export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, projetos, projetoFixo }) {
+export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, projetos, projetoFixo, responsaveis = [] }) {
   const mobile = useMobile()
   const [f, setF] = useState(inicial())
 
   function inicial() {
     return {
-      titulo: '', projeto_id: projetoFixo || '', prazo: '', prioridade: 'media',
+      titulo: '', projeto_id: projetoFixo || '', responsavel: '', prazo: '', prioridade: 'media',
       status: 'a_fazer', recorrencia: 'nenhuma', notas: '',
     }
   }
@@ -122,6 +125,7 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
       setF({
         titulo: demanda.titulo || '',
         projeto_id: demanda.projeto_id || '',
+        responsavel: demanda.responsavel || '',
         prazo: demanda.prazo || '',
         prioridade: demanda.prioridade,
         status: demanda.status,
@@ -160,7 +164,14 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
             t={t}
             onClick={() => {
               if (!f.titulo.trim()) return
-              salvar({ ...f, titulo: f.titulo.trim(), projeto_id: f.projeto_id || null, prazo: f.prazo || null, notas: f.notas.trim() || null })
+              salvar({
+                ...f,
+                titulo: f.titulo.trim(),
+                projeto_id: f.projeto_id || null,
+                responsavel: f.responsavel.trim() || null,
+                prazo: f.prazo || null,
+                notas: f.notas.trim() || null,
+              })
             }}
           >
             Salvar
@@ -181,6 +192,18 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
                 <option key={p.id} value={p.id}>{p.nome}</option>
               ))}
             </select>
+          </Campo>
+          <Campo t={t} rotulo="Responsável">
+            <input
+              {...campo('responsavel')}
+              list="lista-responsaveis"
+              style={estiloInput(t)}
+              placeholder="Ex: Wagner"
+              autoComplete="off"
+            />
+            <datalist id="lista-responsaveis">
+              {responsaveis.map((r) => <option key={r} value={r} />)}
+            </datalist>
           </Campo>
           <Campo t={t} rotulo="Prazo">
             <input type="date" {...campo('prazo')} style={estiloInput(t)} />
