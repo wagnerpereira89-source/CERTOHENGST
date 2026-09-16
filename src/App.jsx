@@ -28,6 +28,13 @@ export default function App() {
   const [projetoFixo, setProjetoFixo] = useState(null)
   const [projetoAberto, setProjetoAberto] = useState(null)
 
+  // lista de responsáveis já usados (pro autocomplete do form e pro filtro)
+  const responsaveis = useMemo(() => {
+    const set = new Set()
+    demandas.forEach((d) => { if (d.responsavel && d.responsavel.trim()) set.add(d.responsavel.trim()) })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [demandas])
+
   // tema no localStorage + cor da status bar
   useEffect(() => {
     localStorage.setItem('tema', temaNome)
@@ -155,6 +162,7 @@ export default function App() {
         projeto_id: d.projeto_id,
         titulo: d.titulo,
         notas: d.notas,
+        responsavel: d.responsavel,
         prazo: proximoPrazo(d.prazo, d.recorrencia),
         prioridade: d.prioridade,
         status: 'a_fazer',
@@ -204,7 +212,7 @@ export default function App() {
           <Painel t={t} demandas={demandas} projetos={projetos} registros={registros} abrirDemanda={abrirDemanda} irProjeto={irProjeto} moverDemanda={moverDemanda} irRegistros={() => setAba('registros')} />
         )}
         {aba === 'demandas' && (
-          <Demandas t={t} demandas={demandas} projetos={projetos} novaDemanda={() => abrirNovaDemanda()} abrirDemanda={abrirDemanda} moverDemanda={moverDemanda} />
+          <Demandas t={t} demandas={demandas} projetos={projetos} responsaveis={responsaveis} novaDemanda={() => abrirNovaDemanda()} abrirDemanda={abrirDemanda} moverDemanda={moverDemanda} />
         )}
         {aba === 'projetos' && (
           <Projetos
@@ -241,6 +249,7 @@ export default function App() {
         demanda={demandaEdit}
         projetos={projetos}
         projetoFixo={projetoFixo}
+        responsaveis={responsaveis}
       />
     </>
   )
