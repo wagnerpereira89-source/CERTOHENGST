@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, AlarmClock, CalendarDays, Repeat, Trash2, FolderKanban, User, CheckCircle2, RotateCcw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlarmClock, CalendarDays, Repeat, Trash2, FolderKanban, User, CheckCircle2, RotateCcw, Paperclip, FileText, X, Upload } from 'lucide-react'
 import { ETAPAS, PRIORIDADES, RECORRENCIAS, estadoPrazo, formatarData } from '../lib/base'
 import { Badge, Bolinha, BotaoGhost, BotaoPrimario, Campo, Modal, estiloInput, useMobile } from './comuns'
+import { urlAnexo } from '../lib/anexos'
 
 // ---------- CARD ----------
 export function CardDemanda({ t, d, projeto, abrir, mover, arrastavel, aoArrastar }) {
@@ -57,6 +58,9 @@ export function CardDemanda({ t, d, projeto, abrir, mover, arrastavel, aoArrasta
         )}
         {d.responsavel && (
           <Badge cor={t.info} bg={t.infoBg}><User size={12} /> {d.responsavel}</Badge>
+        )}
+        {d.anexos?.length > 0 && (
+          <Badge cor={t.textoSec} bg="transparent"><Paperclip size={12} /> {d.anexos.length}</Badge>
         )}
         {d.recorrencia !== 'nenhuma' && (
           <Badge cor={t.textoSec} bg="transparent"><Repeat size={12} /> {RECORRENCIAS.find((r) => r.id === d.recorrencia)?.rotulo}</Badge>
@@ -139,6 +143,11 @@ export function CardConcluida({ t, d, projeto, abrir, reabrir }) {
         </div>
         <div style={{ fontSize: 11.5, color: t.textoFraco, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span>{d.concluido_em ? `Concluída ${dataCurta(d.concluido_em)}` : 'Concluída'}</span>
+          {d.anexos?.length > 0 && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <Paperclip size={11} /> {d.anexos.length}
+            </span>
+          )}
           {projeto && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
               <FolderKanban size={11} /> {projeto.nome}
@@ -165,10 +174,54 @@ function dataCurta(ts) {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+// ---------- LINHA DE ANEXO ----------
+function LinhaAnexo({ t, nome, tamanho, novo, onAbrir, onRemover }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: t.inputBg, border: `1px solid ${t.borda}`, borderRadius: 9, padding: '8px 10px' }}>
+      <FileText size={16} color={t.textoSec} style={{ flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          onClick={onAbrir}
+          style={{
+            fontSize: 13.5,
+            color: onAbrir ? t.info : t.texto,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            cursor: onAbrir ? 'pointer' : 'default',
+            textDecoration: onAbrir ? 'underline' : 'none',
+          }}
+        >
+          {nome}
+        </div>
+        <div style={{ fontSize: 11.5, color: t.textoFraco, marginTop: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span>{formatarTamanho(tamanho)}</span>
+          {novo && <span style={{ color: t.ok, fontWeight: 700 }}>• novo</span>}
+        </div>
+      </div>
+      {onRemover && (
+        <button onClick={onRemover} aria-label="Remover anexo" style={{ background: 'transparent', border: 'none', color: t.textoFraco, cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}>
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function formatarTamanho(b) {
+  if (b === undefined || b === null) return ''
+  if (b < 1024) return `${b} B`
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`
+  return `${(b / 1024 / 1024).toFixed(1)} MB`
+}
+
 // ---------- FORMULÁRIO (MODAL) ----------
 export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, projetos, projetoFixo, responsaveis = [] }) {
   const mobile = useMobile()
   const [f, setF] = useState(inicial())
+  const [anexosExist, setAnexosExist] = useState([])
+  const [arquivosNovos, setArquivosNovos] = useState([])
+  const [remover, setRemover] = useState([])
 
   function inicial() {
     return {
@@ -191,11 +244,24 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
         notas: demanda.notas || '',
       })
     } else setF(inicial())
+    setAnexosExist(demanda?.anexos || [])
+    setArquivosNovos([])
+    setRemover([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto, demanda])
 
   function campo(k) {
     return { value: f[k], onChange: (e) => setF((s) => ({ ...s, [k]: e.target.value })) }
+  }
+
+  function escolherArquivos(e) {
+    const files = Array.from(e.target.files || [])
+    setArquivosNovos((s) => [...s, ...files])
+    e.target.value = '' // permite re-selecionar o mesmo arquivo
+  }
+  const anexosVisiveis = anexosExist.filter((a) => !remover.includes(a.caminho))
+  async function abrirAnexo(caminho) {
+    try { const url = await urlAnexo(caminho); window.open(url, '_blank') } catch (err) { console.error('Falha ao abrir anexo:', err) }
   }
 
   const grid = {
@@ -222,14 +288,18 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
             t={t}
             onClick={() => {
               if (!f.titulo.trim()) return
-              salvar({
-                ...f,
-                titulo: f.titulo.trim(),
-                projeto_id: f.projeto_id || null,
-                responsavel: f.responsavel.trim() || null,
-                prazo: f.prazo || null,
-                notas: f.notas.trim() || null,
-              })
+              salvar(
+                {
+                  ...f,
+                  titulo: f.titulo.trim(),
+                  projeto_id: f.projeto_id || null,
+                  responsavel: f.responsavel.trim() || null,
+                  prazo: f.prazo || null,
+                  notas: f.notas.trim() || null,
+                },
+                arquivosNovos,
+                remover,
+              )
             }}
           >
             Salvar
@@ -290,6 +360,44 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
             style={{ ...estiloInput(t), resize: 'vertical', minHeight: 90 }}
             placeholder="Detalhes, links, próximos passos…"
           />
+        </Campo>
+
+        <Campo t={t} rotulo="Anexos">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {anexosVisiveis.map((a) => (
+              <LinhaAnexo
+                key={a.caminho}
+                t={t}
+                nome={a.nome}
+                tamanho={a.tamanho}
+                onAbrir={() => abrirAnexo(a.caminho)}
+                onRemover={() => setRemover((s) => [...s, a.caminho])}
+              />
+            ))}
+            {arquivosNovos.map((file, i) => (
+              <LinhaAnexo
+                key={`novo-${i}`}
+                t={t}
+                nome={file.name}
+                tamanho={file.size}
+                novo
+                onRemover={() => setArquivosNovos((s) => s.filter((_, idx) => idx !== i))}
+              />
+            ))}
+            <label
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
+                background: 'transparent', color: t.textoSec, border: `1px dashed ${t.borda}`,
+                borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <Upload size={16} /> Anexar arquivo
+              <input type="file" multiple onChange={escolherArquivos} style={{ display: 'none' }} />
+            </label>
+            {anexosVisiveis.length === 0 && arquivosNovos.length === 0 && (
+              <span style={{ fontSize: 12, color: t.textoFraco }}>PDF, Word, Excel, imagem… são salvos ao clicar em Salvar.</span>
+            )}
+          </div>
         </Campo>
 
         {f.recorrencia !== 'nenhuma' && (
