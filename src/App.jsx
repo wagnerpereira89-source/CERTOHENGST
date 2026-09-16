@@ -9,6 +9,7 @@ import Projetos from './ui/Projetos'
 import Registros from './ui/Registros'
 import { ModalDemanda } from './ui/Demanda'
 import { subirFoto, apagarFotos } from './lib/fotos'
+import { subirAnexo, apagarAnexos } from './lib/anexos'
 
 export default function App() {
   const [temaNome, setTemaNome] = useState(() => localStorage.getItem('tema') || 'escuro')
@@ -122,16 +123,26 @@ export default function App() {
     setDemandaEdit(d); setProjetoFixo(null); setModalDemanda(true)
   }
 
-  async function salvarDemanda(dados) {
+  async function salvarDemanda(dados, arquivosNovos = [], caminhosRemover = []) {
+    const userId = sessao?.user?.id
+    // sobe os anexos novos
+    const anexosNovos = []
+    for (const file of arquivosNovos) {
+      try { anexosNovos.push(await subirAnexo(file, userId)) } catch (e) { console.error('Falha ao subir anexo:', e) }
+    }
+
     if (demandaEdit) {
-      const patch = { ...dados }
+      const anteriores = demandaEdit.anexos || []
+      const anexos = [...anteriores.filter((a) => !caminhosRemover.includes(a.caminho)), ...anexosNovos]
+      const patch = { ...dados, anexos }
       if (dados.status === 'concluido' && demandaEdit.status !== 'concluido') patch.concluido_em = new Date().toISOString()
       if (dados.status !== 'concluido') patch.concluido_em = null
       const { data, error } = await supabase.from('demandas').update(patch).eq('id', demandaEdit.id).select().single()
       if (!error) setDemandas((s) => s.map((x) => (x.id === data.id ? data : x)))
+      if (caminhosRemover.length) apagarAnexos(caminhosRemover).catch(() => {})
     } else {
       const posicao = demandas.filter((x) => x.status === dados.status).length
-      const { data, error } = await supabase.from('demandas').insert({ ...dados, posicao }).select().single()
+      const { data, error } = await supabase.from('demandas').insert({ ...dados, anexos: anexosNovos, posicao }).select().single()
       if (!error) setDemandas((s) => [...s, data])
     }
     setModalDemanda(false); setDemandaEdit(null); setProjetoFixo(null)
@@ -139,7 +150,11 @@ export default function App() {
 
   async function excluirDemanda(d) {
     const { error } = await supabase.from('demandas').delete().eq('id', d.id)
-    if (!error) setDemandas((s) => s.filter((x) => x.id !== d.id))
+    if (!error) {
+      setDemandas((s) => s.filter((x) => x.id !== d.id))
+      const caminhos = (d.anexos || []).map((a) => a.caminho)
+      if (caminhos.length) apagarAnexos(caminhos).catch(() => {})
+    }
     setModalDemanda(false); setDemandaEdit(null)
   }
 
@@ -156,7 +171,7 @@ export default function App() {
     if (error) return
     setDemandas((s) => s.map((x) => (x.id === data.id ? data : x)))
 
-    // recorrência: cria próxima ocorrência
+    // recorrência: cria próxima ocorrência (sem copiar anexos da anterior)
     if (concluindo && d.recorrencia && d.recorrencia !== 'nenhuma') {
       const nova = {
         projeto_id: d.projeto_id,
