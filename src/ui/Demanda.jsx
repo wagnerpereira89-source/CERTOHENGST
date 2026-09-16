@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, AlarmClock, CalendarDays, Repeat, Trash2, FolderKanban, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlarmClock, CalendarDays, Repeat, Trash2, FolderKanban, User, CheckCircle2, RotateCcw } from 'lucide-react'
 import { ETAPAS, PRIORIDADES, RECORRENCIAS, estadoPrazo, formatarData } from '../lib/base'
 import { Badge, Bolinha, BotaoGhost, BotaoPrimario, Campo, Modal, estiloInput, useMobile } from './comuns'
 
@@ -105,6 +105,64 @@ function botaoEtapa(t, desabilitado) {
     opacity: desabilitado ? 0.4 : 1,
     cursor: desabilitado ? 'default' : 'pointer',
   }
+}
+
+// ---------- CARD COMPACTO DE CONCLUÍDA ----------
+export function CardConcluida({ t, d, projeto, abrir, reabrir }) {
+  return (
+    <div
+      onClick={() => abrir(d)}
+      style={{
+        background: t.card,
+        border: `1px solid ${t.borda}`,
+        borderRadius: 10,
+        padding: '9px 11px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 9,
+      }}
+    >
+      <CheckCircle2 size={16} color={t.ok} style={{ flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13.5,
+            color: t.textoSec,
+            textDecoration: 'line-through',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {d.titulo}
+        </div>
+        <div style={{ fontSize: 11.5, color: t.textoFraco, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>{d.concluido_em ? `Concluída ${dataCurta(d.concluido_em)}` : 'Concluída'}</span>
+          {projeto && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <FolderKanban size={11} /> {projeto.nome}
+            </span>
+          )}
+        </div>
+      </div>
+      {reabrir && (
+        <button
+          onClick={(e) => { e.stopPropagation(); reabrir(d) }}
+          aria-label="Reabrir"
+          title="Reabrir (volta pra Andamento)"
+          style={{ background: 'transparent', border: 'none', color: t.textoFraco, cursor: 'pointer', padding: 5, display: 'flex', flexShrink: 0 }}
+        >
+          <RotateCcw size={15} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function dataCurta(ts) {
+  const d = new Date(ts)
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 // ---------- FORMULÁRIO (MODAL) ----------
