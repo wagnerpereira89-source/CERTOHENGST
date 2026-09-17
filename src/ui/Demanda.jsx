@@ -181,7 +181,7 @@ function LinhaAnexo({ t, nome, tamanho, novo, onAbrir, onRemover }) {
       <FileText size={16} color={t.textoSec} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
-          onClick={onAbrir}
+          onClick={onAbrir ? (e) => { e.preventDefault(); e.stopPropagation(); onAbrir() } : undefined}
           style={{
             fontSize: 13.5,
             color: onAbrir ? t.info : t.texto,
@@ -200,7 +200,12 @@ function LinhaAnexo({ t, nome, tamanho, novo, onAbrir, onRemover }) {
         </div>
       </div>
       {onRemover && (
-        <button onClick={onRemover} aria-label="Remover anexo" style={{ background: 'transparent', border: 'none', color: t.textoFraco, cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}>
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemover() }}
+          aria-label="Remover anexo"
+          style={{ background: 'transparent', border: 'none', color: t.textoFraco, cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}
+        >
           <X size={16} />
         </button>
       )}
@@ -261,7 +266,15 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
   }
   const anexosVisiveis = anexosExist.filter((a) => !remover.includes(a.caminho))
   async function abrirAnexo(caminho) {
-    try { const url = await urlAnexo(caminho); window.open(url, '_blank') } catch (err) { console.error('Falha ao abrir anexo:', err) }
+    const janela = window.open('', '_blank') // abre no gesto do clique (evita bloqueio de popup)
+    try {
+      const url = await urlAnexo(caminho)
+      if (janela) janela.location = url
+      else window.open(url, '_blank', 'noopener')
+    } catch (err) {
+      if (janela) janela.close()
+      console.error('Falha ao abrir anexo:', err)
+    }
   }
 
   const grid = {
@@ -362,7 +375,8 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
           />
         </Campo>
 
-        <Campo t={t} rotulo="Anexos">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: t.textoSec }}>Anexos</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {anexosVisiveis.map((a) => (
               <LinhaAnexo
@@ -398,7 +412,7 @@ export function ModalDemanda({ t, aberto, fechar, salvar, excluir, demanda, proj
               <span style={{ fontSize: 12, color: t.textoFraco }}>PDF, Word, Excel, imagem… são salvos ao clicar em Salvar.</span>
             )}
           </div>
-        </Campo>
+        </div>
 
         {f.recorrencia !== 'nenhuma' && (
           <div style={{ fontSize: 12.5, color: t.textoSec, background: t.selecionadoBg, borderRadius: 10, padding: '10px 12px' }}>
